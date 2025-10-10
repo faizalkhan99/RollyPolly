@@ -47,6 +47,7 @@ public class RollingCuboidController : MonoBehaviour
 
     void Update()
     {
+        Debug.Log($"IsUpright Check: {IsUpright()} | Current Height: {GetComponent<Renderer>().bounds.size.y}");
         // ... (Update method is unchanged) ...
         if (isMoving) return;
         indicatorManager?.UpdateIndicators(this);
@@ -181,7 +182,8 @@ public class RollingCuboidController : MonoBehaviour
     
     public bool IsUpright()
     {
-        return Mathf.Approximately(GetComponent<Renderer>().bounds.size.y, 2f);
+        // This new check is more flexible and will work with the heights in your screenshot.
+        return GetComponent<Renderer>().bounds.size.y > 1.5f;
     }
     
     public void GetNextRollInfo(Vector3 direction, out Vector3 targetPos, out Vector3 futureSize)
