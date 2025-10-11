@@ -5,8 +5,6 @@ public class HealthSystem : MonoBehaviour
 {
     [Header("Core Stats")]
     [SerializeField] private int maxHealth = 5;
-    [Tooltip("The damage this object deals when it collides with another object that has a HealthSystem.")]
-    [SerializeField] private int damageToDeal = 1;
 
     [Header("Impact Feedback")]
     [Tooltip("How long the screen freezes when this object takes damage.")]
@@ -78,33 +76,6 @@ public class HealthSystem : MonoBehaviour
         stunHandler?.ApplyStun();
 
         if (currentHealth <= 0) Die();
-    }
-
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        // Only run this logic if the object dealing damage is an Enemy
-        if (!levelIsActive || !gameObject.CompareTag("Enemy"))
-        {
-            return;
-        }
-
-        HealthSystem targetHealth = collision.gameObject.GetComponent<HealthSystem>();
-        if (targetHealth == null || targetHealth == this)
-        {
-            return;
-        }
-
-        // ⭐ NEW: Check if the object we hit is the player and if they are slamming
-        RollingCuboidController playerController = collision.gameObject.GetComponent<RollingCuboidController>();
-        if (playerController != null && playerController.IsSlamming)
-        {
-            return;
-        }
-
-        // If the check fails (it's not the player, or the player isn't slamming), deal damage.
-        targetHealth.TakeDamage(damageToDeal);
-        Destroy(gameObject);
     }
 
     private IEnumerator FlashEffect()
