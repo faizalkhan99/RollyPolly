@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class MoveIndicatorManager : MonoBehaviour
 {
+    private Renderer playerRenderer;
     [SerializeField] private GameObject indicatorPrefab;
     [SerializeField] private Color blockedColor = Color.red;
     [SerializeField] private LayerMask groundLayer;
@@ -22,10 +23,14 @@ public class MoveIndicatorManager : MonoBehaviour
 
     public void UpdateIndicators(RollingCuboidController player)
     {
+        if (playerRenderer == null)
+        {
+            playerRenderer = player.GetComponent<Renderer>();
+        }
         for (int i = 0; i < dirs.Length; i++)
         {
             Vector3 dir = dirs[i];
-            
+
             player.GetNextRollInfo(dir, out Vector3 targetPos, out Vector3 futureSize);
 
             // First, check if the move is possible.
@@ -39,7 +44,7 @@ public class MoveIndicatorManager : MonoBehaviour
                 // It's an illegal move, so we MUST show a red tile.
                 indicators[i].SetActive(true);
                 indicatorRenderers[i].material.color = blockedColor;
-                
+
                 // Set its shape to match the potential landing footprint.
                 indicators[i].transform.localScale = new Vector3(futureSize.x, futureSize.z, 1);
 
@@ -54,6 +59,7 @@ public class MoveIndicatorManager : MonoBehaviour
                     // If there's no ground, place it at the target X/Z, but at the player's height.
                     indicators[i].transform.position = new Vector3(targetPos.x, player.transform.position.y - (player.GetComponent<Renderer>().bounds.size.y / 2f) + 0.01f, targetPos.z);
                 }
+                indicators[i].transform.position = new Vector3(targetPos.x, player.transform.position.y - (playerRenderer.bounds.size.y / 2f) + 0.01f, targetPos.z);
             }
         }
     }

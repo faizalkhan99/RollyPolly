@@ -1,31 +1,34 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
 public class RollingCuboidController : MonoBehaviour
 {
-    // ... (Your Movement header and variables are unchanged)
+    #region Unchanged Variables
     [Header("Movement")]
     [SerializeField] private float rollDuration = 0.25f;
     [SerializeField] private float shakeIntensity = 0.1f;
     [SerializeField] private float shakeDuration = 0.1f;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private LayerMask wallLayer;
+    #endregion
 
-    // ⭐ MODIFIED: Added slamDuration
     [Header("Slam Attack")]
     [SerializeField] private float chargeTime = 1.5f;
-    [SerializeField] private float slamDuration = 0.1f; // How fast the slam move is
-    [SerializeField] private Color maxGlowColor = Color.white;
+    [SerializeField] private float slamDuration = 0.1f;
+    [SerializeField] private int slamDamage = 10;
+    [SerializeField] private float slamRadius = 1.5f;
+    [SerializeField] private Color chargingGlowColor = Color.white;
+    [SerializeField] private Color fullyChargedGlowColor = Color.red;
     [SerializeField] private float maxGlowIntensity = 2f;
+    public bool IsSlamming { get; private set; }
 
-    // ⭐ MODIFIED: Added chargingVFX
     [Header("Slam VFX")]
-    [SerializeField] private ParticleSystem chargingVFX; // Plays while charging up
-    [SerializeField] private ParticleSystem chargeCompleteVFX;
     [SerializeField] private ParticleSystem slamImpactVFX;
-    [SerializeField] private ParticleSystem chargedAuraVFX;
 
-    // ... (private variables are unchanged) ...
+    private HealthSystem healthSystem;
+    private StunHandler stunHandler;
+
     private bool isMoving = false;
     private Transform pivot;
     private MoveIndicatorManager indicatorManager;
@@ -36,9 +39,10 @@ public class RollingCuboidController : MonoBehaviour
 
     void Start()
     {
-        // ... (Start method is unchanged) ...
         pivot = new GameObject("CuboidPivot").transform;
         indicatorManager = FindFirstObjectByType<MoveIndicatorManager>();
+        healthSystem = GetComponent<HealthSystem>();
+        stunHandler = GetComponent<StunHandler>();
         cuboidMaterial = GetComponent<Renderer>().material;
         cuboidMaterial.EnableKeyword("_EMISSION");
         SnapToGrid();
@@ -47,29 +51,68 @@ public class RollingCuboidController : MonoBehaviour
 
     void Update()
     {
-        Debug.Log($"IsUpright Check: {IsUpright()} | Current Height: {GetComponent<Renderer>().bounds.size.y}");
-        // ... (Update method is unchanged) ...
-        if (isMoving) return;
+        if (isMoving || (stunHandler != null && stunHandler.IsStunned))
+        {
+            return;
+        }
+
         indicatorManager?.UpdateIndicators(this);
         HandleSlamCharging();
+
         if (Input.GetKey(KeyCode.W)) TryMove(Vector3.forward);
         else if (Input.GetKey(KeyCode.S)) TryMove(Vector3.back);
         else if (Input.GetKey(KeyCode.A)) TryMove(Vector3.left);
         else if (Input.GetKey(KeyCode.D)) TryMove(Vector3.right);
     }
-    
+
+    // ⭐ MODIFIED: This coroutine now triggers the slam VFX and a subtle camera shake
+    private IEnumerator Slam(Vector3 direction)
+    {
+        IsSlamming = true;
+        bool wasFullyCharged = isFullyCharged;
+        CancelCharge();
+
+        yield return StartCoroutine(Roll(direction, true));
+
+        if (wasFullyCharged)
+        {
+            GameManager.Instance.TriggerScreenFreeze(0.05f);
+            SmoothCameraFollow.Instance.StartShake(0.15f, 0.2f);
+
+            if (slamImpactVFX != null)
+            {
+                Instantiate(slamImpactVFX, transform.position, Quaternion.identity);
+            }
+            DealSlamDamage();
+        }
+    }
+
+    private void DealSlamDamage()
+    {
+        Collider[] hitColliders = Physics.OverlapSphere(transform.position, slamRadius);
+        foreach (var hitCollider in hitColliders)
+        {
+            // Check if the object has an "Enemy" tag and a HealthSystem
+            if (hitCollider.CompareTag("Enemy"))
+            {
+                HealthSystem enemyHealth = hitCollider.GetComponent<HealthSystem>();
+                if (enemyHealth != null)
+                {
+                    enemyHealth.TakeDamage(slamDamage);
+                }
+            }
+        }
+    }
+
+    #region Unchanged Methods
     private void HandleSlamCharging()
     {
-        // ⭐ MODIFIED: Play charging VFX
         if (Input.GetKeyDown(KeyCode.Space) && IsUpright())
         {
             isCharging = true;
             currentCharge = 0f;
             isFullyCharged = false;
-            chargingVFX?.Play(); // Play new effect
         }
-
-        // ... (rest of HandleSlamCharging is unchanged) ...
         if (isCharging)
         {
             if (Input.GetKeyUp(KeyCode.Space) || !IsUpright())
@@ -81,49 +124,53 @@ public class RollingCuboidController : MonoBehaviour
             if (currentCharge >= chargeTime && !isFullyCharged)
             {
                 isFullyCharged = true;
-                chargeCompleteVFX?.Play();
-                chargedAuraVFX?.Play();
             }
             UpdateGlow();
         }
     }
-
+    private void UpdateGlow()
+    {
+        float glowPercent = Mathf.Clamp01(currentCharge / chargeTime);
+        Color targetGlowColor;
+        if (isFullyCharged)
+        {
+            targetGlowColor = fullyChargedGlowColor;
+        }
+        else
+        {
+            targetGlowColor = chargingGlowColor;
+        }
+        Color finalColor = Color.Lerp(Color.black, targetGlowColor, glowPercent);
+        cuboidMaterial.SetColor("_EmissionColor", finalColor * maxGlowIntensity * glowPercent);
+    }
     private void CancelCharge()
     {
-        // ⭐ MODIFIED: Stop charging VFX
         isCharging = false;
         isFullyCharged = false;
         currentCharge = 0f;
-        chargingVFX?.Stop(); // Stop new effect
-        chargedAuraVFX?.Stop();
         UpdateGlow();
     }
-
-    private IEnumerator Slam(Vector3 direction)
+    private void TryMove(Vector3 direction)
     {
-        bool wasFullyCharged = isFullyCharged;
-        CancelCharge();
-        
-        // Use the faster slamDuration for the roll
-        yield return StartCoroutine(Roll(direction, true));
-
-        if (wasFullyCharged)
+        if (!CanRoll(direction))
         {
-            // ⭐ NEW: Trigger Camera Shake
-            SmoothCameraFollow.Instance.StartShake(0.2f, 0.3f); // (duration, magnitude)
-
-            slamImpactVFX?.transform.SetPositionAndRotation(transform.position, Quaternion.identity);
-            slamImpactVFX?.Play();
-            // --- ADD YOUR DAMAGE LOGIC HERE ---
+            StartCoroutine(Shake(direction));
+            if (isCharging) CancelCharge();
+            return;
+        }
+        if (isCharging)
+        {
+            StartCoroutine(Slam(direction));
+        }
+        else
+        {
+            StartCoroutine(Roll(direction));
         }
     }
-    
-    // ⭐ MODIFIED: Uses slamDuration
     private IEnumerator Roll(Vector3 direction, bool isSlam = false)
     {
         isMoving = true;
         float elapsedTime = 0f;
-        // ... (pivot setup code is unchanged) ...
         Vector3 rotationAxis = Vector3.Cross(Vector3.up, direction);
         Bounds bounds = GetComponent<Renderer>().bounds;
         float halfWidth = bounds.size.x / 2f;
@@ -134,58 +181,24 @@ public class RollingCuboidController : MonoBehaviour
         transform.SetParent(pivot);
         Quaternion startRotation = pivot.rotation;
         Quaternion endRotation = Quaternion.AngleAxis(90, rotationAxis) * startRotation;
-
-        // Use the faster slamDuration if this is a slam
         float currentRollDuration = isSlam ? slamDuration : rollDuration;
-        
         while (elapsedTime < currentRollDuration)
         {
             pivot.rotation = Quaternion.Slerp(startRotation, endRotation, elapsedTime / currentRollDuration);
             elapsedTime += Time.deltaTime;
             yield return null;
         }
-        // ... (rest of Roll method is unchanged) ...
         pivot.rotation = endRotation;
         transform.SetParent(null);
         SnapToGrid();
         AdjustHeight();
         isMoving = false;
+        IsSlamming = false;
     }
-
-    // ... (All other methods like TryMove, IsUpright, CanRoll, Shake, etc. are unchanged) ...
-    #region --- Unchanged Methods ---
-    private void UpdateGlow()
-    {
-        float glowPercent = Mathf.Clamp01(currentCharge / chargeTime);
-        Color finalColor = Color.Lerp(Color.black, maxGlowColor, glowPercent);
-        cuboidMaterial.SetColor("_EmissionColor", finalColor * maxGlowIntensity * glowPercent);
-    }
-    
-    private void TryMove(Vector3 direction)
-    {
-        if (!CanRoll(direction))
-        {
-            StartCoroutine(Shake(direction));
-            if (isCharging) CancelCharge();
-            return;
-        }
-
-        if (isCharging)
-        {
-            StartCoroutine(Slam(direction));
-        }
-        else
-        {
-            StartCoroutine(Roll(direction));
-        }
-    }
-    
     public bool IsUpright()
     {
-        // This new check is more flexible and will work with the heights in your screenshot.
         return GetComponent<Renderer>().bounds.size.y > 1.5f;
     }
-    
     public void GetNextRollInfo(Vector3 direction, out Vector3 targetPos, out Vector3 futureSize)
     {
         Bounds bounds = GetComponent<Renderer>().bounds;
@@ -203,7 +216,6 @@ public class RollingCuboidController : MonoBehaviour
             futureSize = new Vector3(bounds.size.x, bounds.size.z, bounds.size.y);
         }
     }
-
     public bool CanRoll(Vector3 direction)
     {
         GetNextRollInfo(direction, out Vector3 targetPos, out Vector3 futureSize);
@@ -215,7 +227,6 @@ public class RollingCuboidController : MonoBehaviour
         }
         return true;
     }
-    
     private IEnumerator Shake(Vector3 direction)
     {
         isMoving = true;
@@ -231,14 +242,26 @@ public class RollingCuboidController : MonoBehaviour
         transform.position = originalPos;
         isMoving = false;
     }
+    public void StopAllMovement()
+    {
+        // This stops the Roll() or Slam() coroutine immediately
+        StopAllCoroutines();
 
-    private void SnapToGrid()
+        // Reset the state variables
+        isMoving = false;
+
+        // Ensure the player isn't a child of the pivot anymore
+        if (pivot != null)
+        {
+            transform.SetParent(null);
+        }
+    }
+    public void SnapToGrid()
     {
         Vector3 p = transform.position;
         transform.position = new Vector3(Mathf.Round(p.x / 0.5f) * 0.5f, p.y, Mathf.Round(p.z / 0.5f) * 0.5f);
     }
-
-    private void AdjustHeight()
+    public void AdjustHeight()
     {
         if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, 2f, groundLayer))
         {

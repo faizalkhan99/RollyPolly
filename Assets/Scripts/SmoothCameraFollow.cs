@@ -3,18 +3,20 @@ using UnityEngine;
 
 public class SmoothCameraFollow : MonoBehaviour
 {
+    // --- Singleton Setup ---
     public static SmoothCameraFollow Instance { get; private set; }
 
+    [Header("Target & Positioning")]
     public Transform target;
 
-    [Header("Camera Smoothing")]
-    [Range(0.01f, 1.0f)]
+    [Header("Smoothing")]
     public float smoothSpeed = 0.125f;
 
     private bool isShaking = false;
 
     void Awake()
     {
+        // Set up the Singleton instance
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -36,6 +38,9 @@ public class SmoothCameraFollow : MonoBehaviour
     }
     void LateUpdate()
     {
+        // Don't follow the target if the camera is shaking
+        if (target == null || isShaking) return;
+
         // Ensure we have a target to follow
         if (target == null) return;
 
@@ -49,7 +54,7 @@ public class SmoothCameraFollow : MonoBehaviour
         transform.position = smoothedPosition;
     }
 
-    // Call this from other scripts to trigger the shake
+    // ⭐ NEW: This function can be called from any script to start the shake
     public void StartShake(float duration, float magnitude)
     {
         StartCoroutine(Shake(duration, magnitude));
@@ -63,14 +68,21 @@ public class SmoothCameraFollow : MonoBehaviour
 
         while (elapsed < duration)
         {
+            // ⭐ MODIFIED: This check now works even if the player is just disabled.
+            if (target == null || !target.gameObject.activeInHierarchy)
+            {
+                isShaking = false;
+                yield break; // Stop the coroutine immediately
+            }
+
             float x = Random.Range(-1f, 1f) * magnitude;
             float y = Random.Range(-1f, 1f) * magnitude;
-
             transform.position = originalPos + new Vector3(x, y, 0);
             elapsed += Time.deltaTime;
             yield return null;
         }
 
+        // This part will now only be reached if the shake completes normally.
         transform.position = originalPos;
         isShaking = false;
     }
