@@ -3,26 +3,36 @@ using UnityEngine;
 public class CollisionDamageDealer : MonoBehaviour
 {
     [SerializeField] private int damageToDeal = 1;
-    [SerializeField] private bool destroyOnImpact = true;
+    private EnemyStunHandler enemyStunHandler; // Reference to its own stun handler
+
+    void Start()
+    {
+        enemyStunHandler = GetComponent<EnemyStunHandler>();
+    }
 
     private void OnCollisionEnter(Collision collision)
     {
-        HealthSystem targetHealth = collision.gameObject.GetComponent<HealthSystem>();
-        if (targetHealth != null)
-        {
-            // Special check to avoid dealing damage to the player if they are slamming
-            RollingCuboidController player = collision.gameObject.GetComponent<RollingCuboidController>();
-            if (player != null && player.IsSlamming)
-            {
-                return; // Do nothing, the slam will handle damage
-            }
-            
-            targetHealth.TakeDamage(damageToDeal);
+        // Don't do anything if this enemy is already stunned
+        if (enemyStunHandler != null && enemyStunHandler.IsStunned) return;
 
-            if (destroyOnImpact)
+        // Try to damage the player
+        if (collision.gameObject.CompareTag("Player"))
+        {
+            HealthSystem targetHealth = collision.gameObject.GetComponent<HealthSystem>();
+            if (targetHealth != null)
             {
-                Destroy(gameObject);
+                RollingCuboidController player = collision.gameObject.GetComponent<RollingCuboidController>();
+                if (player != null && player.IsSlamming)
+                {
+                    return; // Player is immune, their slam will stun us
+                }
+                
+                targetHealth.TakeDamage(damageToDeal);
+
+                // ⭐ MODIFIED: Stun self after dealing damage
+                enemyStunHandler?.ApplyStun();
             }
         }
     }
 }
+

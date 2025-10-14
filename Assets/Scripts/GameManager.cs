@@ -10,11 +10,16 @@ public class GameManager : MonoBehaviour
     [Header("UI Elements")]
     [SerializeField] private TextMeshProUGUI coinCounterText;
     [SerializeField] private TextMeshProUGUI healthCounterText;
-    [SerializeField] private GameObject deathScreenPanel; // ⭐ NEW
+    [SerializeField] private GameObject deathScreenPanel;
+    [SerializeField] private GameObject pauseMenuPanel; // ⭐ NEW
 
     // --- Game State ---
     private int totalCoinsInLevel;
     private int coinsCollected;
+    public static bool isPaused = false;
+    [Header("Level Objects")]
+    [SerializeField] private GameObject winScreenPanel; // ⭐ NEW
+    [SerializeField] private WinGate winGate; // ⭐ NEW
 
     private void Awake()
     {
@@ -31,8 +36,11 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        deathScreenPanel.SetActive(false);
+        winScreenPanel.SetActive(false);
         gameObject.SetActive(true);
         deathScreenPanel.SetActive(false);
+        pauseMenuPanel.SetActive(false);
         // Find all objects with the Coin script to get the total
         totalCoinsInLevel = FindObjectsOfType<Coin>().Length;
         coinsCollected = 0;
@@ -40,7 +48,42 @@ public class GameManager : MonoBehaviour
         // Set the initial UI text
         UpdateCoinUI();
     }
-     public void ShowDeathScreen()
+    public void IsGamePaused(bool ispause)
+    {
+        if (ispause)
+        {
+            ONOFF_GameUI(ispause);
+            Time.timeScale = 0f;
+            pauseMenuPanel.SetActive(true);
+        }
+        else
+        {
+            ONOFF_GameUI(ispause);
+            pauseMenuPanel.SetActive(false);
+            Time.timeScale = 1f;
+        }
+    }
+    [SerializeField] private GameObject _coinPanel;
+    [SerializeField] private GameObject _healthPanel;
+    [SerializeField] private GameObject _pauseBtnPanel;
+
+
+    private void ONOFF_GameUI(bool pauseCondition)
+    {
+        if (pauseCondition)
+        {
+            if (_coinPanel) _coinPanel.SetActive(!pauseCondition);
+            if (_healthPanel) _healthPanel.SetActive(!pauseCondition);
+            if (_pauseBtnPanel) _pauseBtnPanel.SetActive(!pauseCondition);
+        }
+        else
+        {
+            if (_coinPanel) _coinPanel.SetActive(pauseCondition);
+            if (_healthPanel) _healthPanel.SetActive(pauseCondition);
+            if (_pauseBtnPanel) _pauseBtnPanel.SetActive(pauseCondition);
+        }
+    }
+    public void ShowDeathScreen()
     {
         deathScreenPanel.SetActive(true);
     }
@@ -54,15 +97,25 @@ public class GameManager : MonoBehaviour
     public void CollectCoin()
     {
         coinsCollected++;
+        AudioManager.Instance.PlaySFX(SoundID.CoinCollected);
         UpdateCoinUI();
 
         // Check for win condition
         if (coinsCollected >= totalCoinsInLevel)
         {
-            // You've collected all the coins!
             Debug.Log("LEVEL COMPLETE!");
-            // You can add code here to show a victory screen or load the next level
+            if (winGate != null)
+            {
+                winGate.ActivateGate();
+                AudioManager.Instance.PlaySFX(SoundID.yay);
+            }
         }
+    }
+    // ⭐ NEW: This function shows the win screen
+    public void ShowWinScreen()
+    {
+        winScreenPanel.SetActive(true);
+        Time.timeScale = 0f; // Pause the game
     }
     void Update()
     {
@@ -86,23 +139,23 @@ public class GameManager : MonoBehaviour
     }
     private Coroutine screenFreezeCoroutine;
 
-// ⭐ NEW: This public function can be called from any script.
-public void TriggerScreenFreeze(float duration)
-{
-    // Stop any existing freeze to prevent conflicts
-    if (screenFreezeCoroutine != null)
+    // ⭐ NEW: This public function can be called from any script.
+    public void TriggerScreenFreeze(float duration)
     {
-        StopCoroutine(screenFreezeCoroutine);
+        // Stop any existing freeze to prevent conflicts
+        if (screenFreezeCoroutine != null)
+        {
+            StopCoroutine(screenFreezeCoroutine);
+        }
+        screenFreezeCoroutine = StartCoroutine(ScreenFreezeCoroutine(duration));
     }
-    screenFreezeCoroutine = StartCoroutine(ScreenFreezeCoroutine(duration));
-}
 
-// ⭐ NEW: This is the actual coroutine that handles the freeze.
-private IEnumerator ScreenFreezeCoroutine(float duration)
-{
-    Time.timeScale = 0f;
-    yield return new WaitForSecondsRealtime(duration); // Use Realtime to wait even when time is frozen
-    Time.timeScale = 1f;
-    screenFreezeCoroutine = null;
-}
+    // ⭐ NEW: This is the actual coroutine that handles the freeze.
+    private IEnumerator ScreenFreezeCoroutine(float duration)
+    {
+        Time.timeScale = 0f;
+        yield return new WaitForSecondsRealtime(duration); // Use Realtime to wait even when time is frozen
+        Time.timeScale = 1f;
+        screenFreezeCoroutine = null;
+    }
 }

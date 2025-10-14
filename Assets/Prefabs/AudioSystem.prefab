@@ -43,9 +43,9 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
+  m_Resource: {fileID: 8300000, guid: 0e793006c4e76224ca7e62e0e84bffb9, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.75
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -179,8 +179,12 @@ MonoBehaviour:
   - {fileID: 1021600976680100524}
   - {fileID: 3471999584458603194}
   _sfxLibrary:
-  - id: 0
-    clip: {fileID: 0}
+  - id: 11
+    clip: {fileID: 8300000, guid: 144454d06f91f92439b5d245f536a96f, type: 3}
+  - id: 9
+    clip: {fileID: 8300000, guid: e78b7d39de9ff0f418a2db85062983cb, type: 3}
+  - id: 10
+    clip: {fileID: 8300000, guid: a6b93f20d8a494249a97343f3262ef3c, type: 3}
 --- !u!1 &4313748744969201797
 GameObject:
   m_ObjectHideFlags: 0
@@ -226,7 +230,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -355,7 +359,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -520,7 +524,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 0
   Mute: 0

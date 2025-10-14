@@ -13,37 +13,44 @@ public class EnemyAI : MonoBehaviour
     private Transform playerTarget;
     private List<Vector3> path;
     private int targetIndex;
-    private HealthSystem healthSystem;
-    private StunHandler stunHandler;
+    private EnemyStunHandler enemyStunHandler; // Reference to the stun script
 
     void Start()
     {
         playerTarget = GameObject.FindGameObjectWithTag("Player").transform;
-        healthSystem = GetComponent<HealthSystem>();
-        stunHandler = GetComponent<StunHandler>();
+        enemyStunHandler = GetComponent<EnemyStunHandler>();
         StartCoroutine(UpdatePath());
     }
 
     void Update()
     {
-        // Don't move if stunned
-        if (stunHandler != null && stunHandler.IsStunned)
+        // ⭐ THIS IS THE CRUCIAL FIX ⭐
+        // If the stun handler exists and the enemy is stunned, stop ALL execution in this Update frame.
+        if (enemyStunHandler != null && enemyStunHandler.IsStunned)
         {
-            return;
+            return; // This prevents both movement and LookAt from running
         }
 
-        // Follow the calculated path
+        // --- Path Following Logic (will only run if not stunned) ---
         if (path != null && path.Count > 0)
         {
             Vector3 currentWaypoint = path[targetIndex];
-            transform.position = Vector3.MoveTowards(transform.position, currentWaypoint, moveSpeed * Time.deltaTime);
+            Vector3 targetPosition = new Vector3(currentWaypoint.x, transform.position.y, currentWaypoint.z);
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
 
-            if (transform.position == currentWaypoint)
+            // Make the enemy look where it's going
+            if (Vector3.Distance(transform.position, targetPosition) > 0.01f)
+            {
+                transform.LookAt(targetPosition);
+            }
+
+            // Check if we've reached the waypoint
+            if (Vector3.Distance(transform.position, targetPosition) < 0.01f)
             {
                 targetIndex++;
                 if (targetIndex >= path.Count)
                 {
-                    path = null; // Path complete
+                    path = null;
                     targetIndex = 0;
                 }
             }
@@ -54,7 +61,8 @@ public class EnemyAI : MonoBehaviour
     {
         while (true)
         {
-            if (playerTarget != null)
+            // Only update the path if the player exists and we are not stunned
+            if (playerTarget != null && (enemyStunHandler == null || !enemyStunHandler.IsStunned))
             {
                 path = EnemyPathfinding.FindPath(transform.position, playerTarget.position);
                 targetIndex = 0;
@@ -63,3 +71,4 @@ public class EnemyAI : MonoBehaviour
         }
     }
 }
+

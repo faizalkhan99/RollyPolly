@@ -15,6 +15,7 @@ public enum SoundID
     PlayerDied,
     EnemyDied,
     CoinCollected,
+    Slam,
 
     //Milestone sounds
     yay

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -48,7 +49,7 @@ public class HealthSystem : MonoBehaviour
             originalColor = objectMaterial.color;
         }
 
-        
+
     }
 
     // This is the main function other scripts will call
@@ -57,7 +58,7 @@ public class HealthSystem : MonoBehaviour
         if (stunHandler != null && stunHandler.IsInvincible) return;
 
         currentHealth -= damage;
-        Debug.Log($"{gameObject.name} took {damage} damage. Health: {currentHealth}/{maxHealth}");
+        //Debug.Log($"{gameObject.name} took {damage} damage. Health: {currentHealth}/{maxHealth}");
         if (CompareTag("Player"))
         {
             GameManager.Instance.UpdateHealthUI(currentHealth, maxHealth);
@@ -70,12 +71,20 @@ public class HealthSystem : MonoBehaviour
             // ⭐ MODIFIED: Call the safe, centralized screen freeze in the GameManager
             GameManager.Instance.TriggerScreenFreeze(screenFreezeDuration);
         }
-
         // --- Universal Feedback ---
         StartCoroutine(FlashEffect());
         stunHandler?.ApplyStun();
 
-        if (currentHealth <= 0) Die();
+        if (currentHealth <= 0 && gameObject.CompareTag("Player"))
+        {
+            Die();
+        }
+    }
+
+    private void Die()
+    {
+        GameManager.Instance.ShowDeathScreen();
+        gameObject.SetActive(false);
     }
 
     private IEnumerator FlashEffect()
@@ -101,20 +110,20 @@ public class HealthSystem : MonoBehaviour
     [Header("Death Feedback (Optional)")]
     [SerializeField] private ParticleSystem deathVFX;
 
-    private void Die()
-    {
-        Debug.Log($"{gameObject.name} has died.");
+    // private void Die()
+    // {
+    //     Debug.Log($"{gameObject.name} has died.");
 
-        // If this is the player, trigger the death screen and disable the object
-        if (CompareTag("Player"))
-        {
-            GameManager.Instance.ShowDeathScreen();
-            gameObject.SetActive(false); // Disable instead of destroying
-        }
-        else // If it's an enemy
-        {
-            Destroy(gameObject); // Enemies can still be destroyed
-        }
-    }
+    //     // If this is the player, trigger the death screen and disable the object
+    //     if (CompareTag("Player"))
+    //     {
+    //         GameManager.Instance.ShowDeathScreen();
+    //         gameObject.SetActive(false); // Disable instead of destroying
+    //     }
+    //     else // If it's an enemy
+    //     {
+    //         Destroy(gameObject); // Enemies can still be destroyed
+    //     }
+    // }
 
 }

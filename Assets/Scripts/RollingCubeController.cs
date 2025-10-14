@@ -16,7 +16,7 @@ public class RollingCuboidController : MonoBehaviour
     [Header("Slam Attack")]
     [SerializeField] private float chargeTime = 1.5f;
     [SerializeField] private float slamDuration = 0.1f;
-    [SerializeField] private int slamDamage = 10;
+    // [SerializeField] private int slamDamage = 10;
     [SerializeField] private float slamRadius = 1.5f;
     [SerializeField] private Color chargingGlowColor = Color.white;
     [SerializeField] private Color fullyChargedGlowColor = Color.red;
@@ -65,7 +65,7 @@ public class RollingCuboidController : MonoBehaviour
         else if (Input.GetKey(KeyCode.D)) TryMove(Vector3.right);
     }
 
-    // ⭐ MODIFIED: This coroutine now triggers the slam VFX and a subtle camera shake
+    [SerializeField] private float vfx_ligeTime;
     private IEnumerator Slam(Vector3 direction)
     {
         IsSlamming = true;
@@ -81,7 +81,15 @@ public class RollingCuboidController : MonoBehaviour
 
             if (slamImpactVFX != null)
             {
-                Instantiate(slamImpactVFX, transform.position, Quaternion.identity);
+                // 1. Calculate the spawn position at the player's final location, but fixed slightly above the ground (y=0).
+                Vector3 spawnPosition = new Vector3(transform.localPosition.x, 0.501f, transform.localPosition.z);
+
+                // 2. Instantiate the prefab from the project files at the calculated position with no rotation.
+                GameObject vfxInstance = Instantiate(slamImpactVFX.gameObject, spawnPosition, Quaternion.Euler(90, 0, 0));
+                AudioManager.Instance.PlaySFX(SoundID.Slam);
+                // 3. Tell the new VFX instance to destroy itself after 2 seconds.
+                // This is long enough for most effects to finish playing. Adjust if needed.
+                Destroy(vfxInstance, vfx_ligeTime);
             }
             DealSlamDamage();
         }
@@ -92,13 +100,14 @@ public class RollingCuboidController : MonoBehaviour
         Collider[] hitColliders = Physics.OverlapSphere(transform.position, slamRadius);
         foreach (var hitCollider in hitColliders)
         {
-            // Check if the object has an "Enemy" tag and a HealthSystem
+            // ⭐ MODIFIED: Look for an EnemyStunHandler on objects with the "Enemy" tag
             if (hitCollider.CompareTag("Enemy"))
             {
-                HealthSystem enemyHealth = hitCollider.GetComponent<HealthSystem>();
-                if (enemyHealth != null)
+                EnemyStunHandler enemyStun = hitCollider.GetComponent<EnemyStunHandler>();
+                if (enemyStun != null)
                 {
-                    enemyHealth.TakeDamage(slamDamage);
+                    // Directly apply the stun effect, bypassing health/damage
+                    enemyStun.ApplyStun();
                 }
             }
         }
